@@ -19,73 +19,9 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  bump-version:
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-      pull-requests: write
-
-    outputs:
-      version: ${{ steps.bump-version.outputs.version }}
-
-    steps:
-      - uses: actions/create-github-app-token@v3.2.0
-        id: app-token
-        with:
-          client-id: ${{ secrets.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
-      - name: Get GitHub App User ID
-        id: github-app
-        run: |
-          echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-
-      - name: Checkout
-        uses: actions/checkout@v7.0.0
-        with:
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v7.0.0
-        with:
-          node-version: 24
-
-      - name: Bump version
-        id: bump-version
-        run: |
-          VERSION=$(npm version ${{ github.event.inputs.bump_type }} --no-git-tag-version)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Verified Bot Commit
-        id: bot-commit
-        uses: iarekylew00t/verified-bot-commit@v2.3.3
-        with:
-          token: ${{ steps.app-token.outputs.token }}
-          message: 'chore: bump version to ${{ steps.bump-version.outputs.version }}'
-          files: |
-            package.json
-
-      - name: Create Verified Tag
-        uses: actions/github-script@v9.0.0
-        with:
-          github-token: ${{ steps.app-token.outputs.token }}
-          script: |
-            await github.rest.git.createRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: 'refs/tags/${{ steps.bump-version.outputs.version }}',
-              sha: '${{ steps.bot-commit.outputs.commit }}'
-            });
-
   build:
     runs-on: ${{ matrix.runner }}
 
-    needs: bump-version
 
     permissions:
       contents: read
@@ -160,7 +96,6 @@ jobs:
     runs-on: ubuntu-latest
 
     needs:
-      - bump-version
       - build
 
     permissions:
@@ -198,7 +133,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.organization }}
           tags: |
             type=raw,value=latest
-            type=raw,value=${{ needs.bump-version.outputs.version }}
+            type=raw,value=3.141
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
